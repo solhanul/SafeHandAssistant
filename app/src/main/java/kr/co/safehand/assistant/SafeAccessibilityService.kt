@@ -5,7 +5,9 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.graphics.Color
 import android.graphics.Bitmap
+import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.Build
@@ -37,8 +39,6 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
     private val screenTextRecognizer: TextRecognizer by lazy {
         TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
     }
-    private var latestText = ""
-    private var latestVisiblePageText = ""
     private var latestUrl: String? = null
     private var lastWarnedUrl: String? = null
     private var overlay: View? = null
@@ -73,14 +73,7 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         val node = event.source ?: return
         try {
             if (node.isPassword || isEditableSecret(node)) return
-            val selected = selectedText(node)
-            if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED && selected.isNotBlank()) {
-                latestText = selected
-                return
-            }
-
             val pageText = visiblePageText()
-            if (pageText.isNotBlank()) latestVisiblePageText = pageText
             val url = URL_REGEX.find(pageText)?.value
             if (url != null) {
                 latestUrl = url
@@ -89,7 +82,6 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
 
             // 긴 누른 제목 한 줄이 아니라, 화면에 현재 보이는 본문을 읽는다.
             if (event.eventType == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED) {
-                latestText = selected.ifBlank { pageText }
                 readCurrentScreen()
             }
         } finally {
@@ -162,7 +154,11 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         setPadding(0, 0, 0, 0)
         val size = (resources.displayMetrics.density * 58).toInt()
         layoutParams = LinearLayout.LayoutParams(size, size).apply { bottomMargin = (resources.displayMetrics.density * 7).toInt() }
-        background = roundedBackground(Color.rgb(11, 110, 79), size / 2)
+        background = RippleDrawable(
+            ColorStateList.valueOf(Color.argb(110, 255, 255, 255)),
+            roundedBackground(Color.rgb(11, 110, 79), size / 2),
+            null
+        )
         setOnClickListener { action() }
     }
 
@@ -170,11 +166,6 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         val expanded = actionPanel?.visibility != View.VISIBLE
         actionPanel?.visibility = if (expanded) View.VISIBLE else View.GONE
         toggleButton?.text = if (expanded) "닫기" else "열기"
-    }
-
-    private fun collapseActions() {
-        actionPanel?.visibility = View.GONE
-        toggleButton?.text = "열기"
     }
 
     private fun enableDragging(button: View) {
@@ -220,7 +211,7 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
     private fun checkLatestUrl() {
         val url = latestUrl
         if (url == null) {
-            speak("이 화면에서 인터넷 주소를 찾지 못했어요. 링크가 보이는 곳을 길게 눌러 보세요.")
+            speak("이 화면에서 인터넷 주소를 찾지 못했어요.")
             return
         }
         val result = UrlRiskClassifier.check(url)
@@ -274,7 +265,7 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         if (!result.isWarning || url == lastWarnedUrl) return
         lastWarnedUrl = url
         vibrate()
-        speak("주의하세요. 이 화면의 링크가 의심스러울 수 있습니다. 안심비서 검사 버튼을 눌러 확인하세요.")
+        speak("주의하세요. 이 화면의 링크가 의심스러울 수 있습니다.")
         Toast.makeText(this, "주의: 의심스러운 링크를 발견했습니다.", Toast.LENGTH_LONG).show()
     }
 
@@ -321,13 +312,6 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
             }
         }
         return values.toString()
-    }
-
-    private fun selectedText(node: AccessibilityNodeInfo): String {
-        val text = node.text?.toString().orEmpty()
-        val start = node.textSelectionStart
-        val end = node.textSelectionEnd
-        return if (start >= 0 && end > start && end <= text.length) text.substring(start, end).trim() else ""
     }
 
     private fun shouldRead(node: AccessibilityNodeInfo, text: String, bounds: Rect): Boolean {

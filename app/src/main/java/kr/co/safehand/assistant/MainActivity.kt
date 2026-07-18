@@ -2,7 +2,6 @@ package kr.co.safehand.assistant
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -29,9 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sos
@@ -108,29 +105,6 @@ private fun SafeHandApp() {
 }
 
 @Composable
-private fun Onboarding(onStart: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(28.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.height(28.dp))
-        Icon(Icons.Default.Security, null, tint = Green, modifier = Modifier.size(92.dp))
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("손안의 안심비서", fontSize = 31.sp, fontWeight = FontWeight.Bold, color = Green)
-            Spacer(Modifier.height(16.dp))
-            Text("스마트폰을 더 쉽고 안전하게\n사용하도록 도와드릴게요.", fontSize = 21.sp, lineHeight = 31.sp, textAlign = TextAlign.Center)
-        }
-        Card(colors = CardDefaults.cardColors(containerColor = SoftGreen), shape = RoundedCornerShape(22.dp)) {
-            Text("• 어려운 글자는 소리 내어 읽어드려요\n• 수상한 링크는 먼저 확인해 드려요\n• 필요할 때 가족에게 바로 도움을 요청해요", modifier = Modifier.padding(22.dp), fontSize = 18.sp, lineHeight = 30.sp)
-        }
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(18.dp)) {
-            Text("시작하기", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
 private fun OnboardingTutorial(onStart: () -> Unit) {
     val steps = remember {
         listOf(
@@ -185,8 +159,8 @@ private fun TutorialVisual(stepIndex: Int) {
             0 -> Text("이 화면은 언제든 설정에서 다시 볼 수 있어요.", modifier = Modifier.padding(18.dp), fontSize = 16.sp, textAlign = TextAlign.Center)
             1 -> Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("이것이 홈 화면이에요", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Green)
-                TutorialMiniButton("위험 확인", Orange)
-                TutorialMiniButton("안심비서 설정", Color(0xFF275D9A))
+                TutorialMiniButton("위험 확인", Red)
+                TutorialMiniButton("안심비서 설정", Green)
                 TutorialMiniButton("화면 위 빠른 도움 켜기", Color(0xFF275D9A))
             }
             2 -> Box(modifier = Modifier.fillMaxWidth().height(225.dp).background(Color(0xFFF4F4F4))) {
@@ -264,8 +238,8 @@ private fun Home(
         Text("안녕하세요,", fontSize = 20.sp)
         Text("무엇을 도와드릴까요?", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Green)
         Spacer(Modifier.height(22.dp))
-        HomeButton("위험 확인", "수상한 인터넷 주소 검사하기", Icons.Default.Security, Orange, onLinkCheck)
-        HomeButton("안심비서 설정", "음성·튜토리얼·화면 위 버튼", Icons.Default.Tune, Color(0xFF275D9A), onOpenSettings)
+        HomeButton("위험 확인", "수상한 인터넷 주소 검사하기", Icons.Default.Security, Red, onLinkCheck)
+        HomeButton("안심비서 설정", "음성·튜토리얼·화면 위 버튼", Icons.Default.Tune, Green, onOpenSettings)
         Button(
             onClick = { onEnableAssistant(context) },
             modifier = Modifier.fillMaxWidth().height(72.dp).padding(bottom = 10.dp),
@@ -383,39 +357,6 @@ private fun AssistantSettings(onBack: () -> Unit, onReplayTutorial: () -> Unit) 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FamilyHelp(onBack: () -> Unit) {
-    val context = LocalContext.current
-    var phone by remember { mutableStateOf("") }
-    Scaffold(topBar = { BackBar("가족에게 도움 요청", onBack) }) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("보호자 연락처", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-            Text("가족이나 믿을 수 있는 분의 번호를 입력해 두세요.", fontSize = 17.sp, lineHeight = 25.sp)
-            OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("전화번호") }, modifier = Modifier.fillMaxWidth(), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 20.sp))
-            Button(onClick = { callNumber(context, phone) }, enabled = phone.isNotBlank(), modifier = Modifier.fillMaxWidth().height(65.dp), shape = RoundedCornerShape(18.dp)) { Icon(Icons.Default.Call, null); Spacer(Modifier.width(10.dp)); Text("전화로 도움 요청", fontSize = 20.sp) }
-            Button(onClick = { sendHelpMessage(context, phone) }, enabled = phone.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = Green), modifier = Modifier.fillMaxWidth().height(65.dp), shape = RoundedCornerShape(18.dp)) { Text("문자로 도움 요청", fontSize = 20.sp) }
-            Card(colors = CardDefaults.cardColors(containerColor = SoftGreen), shape = RoundedCornerShape(18.dp)) { Text("다음 단계에서는 이 번호를 안전하게 저장하고, 홈 화면의 도움 요청 버튼을 길게 눌러 바로 연결되도록 만들 예정입니다.", modifier = Modifier.padding(18.dp), fontSize = 16.sp, lineHeight = 24.sp) }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ReadAloud(onBack: () -> Unit) {
-    var words by remember { mutableStateOf("") }
-    val speaker = rememberSpeaker()
-    val context = LocalContext.current
-    val preferences = remember { AssistantPreferences(context) }
-    Scaffold(topBar = { BackBar("글자 읽기", onBack) }) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(22.dp)) {
-            Text("읽고 싶은 글을 붙여 넣어 주세요.", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-            OutlinedTextField(value = words, onValueChange = { words = it }, label = { Text("글 입력") }, modifier = Modifier.fillMaxWidth().padding(top = 20.dp), minLines = 6, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 19.sp))
-            Button(onClick = { speakWithSettings(speaker, words, preferences) }, enabled = words.isNotBlank(), modifier = Modifier.fillMaxWidth().height(62.dp).padding(top = 10.dp), shape = RoundedCornerShape(18.dp)) { Icon(Icons.Default.Hearing, null); Spacer(Modifier.width(10.dp)); Text("소리 내어 읽기", fontSize = 20.sp) }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun BackBar(title: String, onBack: () -> Unit) = TopAppBar(title = { Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "뒤로") } })
 
 @Composable
@@ -447,10 +388,8 @@ private fun assessLink(raw: String): LinkRisk {
     if (listOf("bit.ly", "tinyurl", "t.co", "shorturl").any(text::contains)) { score += 2; reasons += "실제 주소를 숨길 수 있는 짧은 링크예요." }
     if (listOf("verify", "login", "bank", "money", "gift", "인증", "송금", "무료", "당첨").any(text::contains)) { score += 2; reasons += "금융·인증 또는 혜택을 유도하는 단어가 있어요." }
     if (text.count { it == '-' } >= 3 || text.length > 100) { score += 1; reasons += "주소가 지나치게 복잡하거나 길어요." }
-    if (score == 0) reasons += "주소 형식에서 즉시 확인되는 위험 신호는 없어요. 그래도 모르는 곳이라면 열지 마세요."
+    if (score == 0) reasons += "주소 형식에서 즉시 확인되는 위험 신호는 없어요."
     return LinkRisk(if (score >= 4) RiskLevel.DANGER else if (score > 0) RiskLevel.CAUTION else RiskLevel.SAFE, reasons)
 }
 
-private fun callNumber(context: Context, number: String) { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
-private fun sendHelpMessage(context: Context, number: String) { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number")).putExtra("sms_body", "도움이 필요합니다. 확인 후 연락해 주세요.")) }
 private fun vibrate(context: Context) { (context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator).vibrate(VibrationEffect.createOneShot(700, VibrationEffect.DEFAULT_AMPLITUDE)) }
