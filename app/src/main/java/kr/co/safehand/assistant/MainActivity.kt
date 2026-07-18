@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -87,7 +88,8 @@ private fun SafeHandApp() {
                 Screen.HOME -> Home(
                     onLinkCheck = { screen = Screen.LINK_CHECK },
                     onFamily = { screen = Screen.FAMILY },
-                    onRead = { screen = Screen.READ_ALOUD }
+                    onRead = { screen = Screen.READ_ALOUD },
+                    onEnableAssistant = { context -> context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                 )
                 Screen.LINK_CHECK -> LinkCheck(onBack = { screen = Screen.HOME })
                 Screen.FAMILY -> FamilyHelp(onBack = { screen = Screen.HOME })
@@ -121,7 +123,12 @@ private fun Onboarding(onStart: () -> Unit) {
 }
 
 @Composable
-private fun Home(onLinkCheck: () -> Unit, onFamily: () -> Unit, onRead: () -> Unit) {
+private fun Home(
+    onLinkCheck: () -> Unit,
+    onFamily: () -> Unit,
+    onRead: () -> Unit,
+    onEnableAssistant: (Context) -> Unit
+) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp)) {
         Text("안녕하세요,", fontSize = 20.sp)
@@ -131,6 +138,19 @@ private fun Home(onLinkCheck: () -> Unit, onFamily: () -> Unit, onRead: () -> Un
         HomeButton("글자 읽기", "글을 붙여 넣으면 읽어드려요", Icons.Default.Hearing, Green, onRead)
         HomeButton("위험 확인", "수상한 인터넷 주소 검사하기", Icons.Default.Security, Orange, onLinkCheck)
         HomeButton("가족 연락", "등록한 보호자에게 연락하기", Icons.Default.FamilyRestroom, Green, onFamily)
+        Button(
+            onClick = { onEnableAssistant(context) },
+            modifier = Modifier.fillMaxWidth().height(72.dp).padding(bottom = 10.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF275D9A))
+        ) {
+            Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("화면 위 빠른 도움 켜기", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text("설정에서 안심비서를 켜 주세요", fontSize = 14.sp)
+            }
+        }
         Spacer(Modifier.height(12.dp))
         Card(colors = CardDefaults.cardColors(containerColor = SoftGreen), shape = RoundedCornerShape(18.dp)) {
             Text("기억하세요: 모르는 사람이 급하게 돈이나 인증번호를 요구하면, 누르지 말고 가족에게 먼저 물어보세요.", modifier = Modifier.padding(18.dp), fontSize = 17.sp, lineHeight = 26.sp)
