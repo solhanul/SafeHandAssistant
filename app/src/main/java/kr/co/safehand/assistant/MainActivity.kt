@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { ONBOARDING, HOME, LINK_CHECK, READ_ALOUD, SETTINGS }
+private enum class Screen { ONBOARDING, HOME, LINK_CHECK, SETTINGS }
 
 private data class TutorialStep(val title: String, val description: String, val icon: ImageVector)
 
@@ -97,12 +97,10 @@ private fun SafeHandApp() {
                 Screen.ONBOARDING -> OnboardingTutorial(onStart = { preferences.onboardingCompleted = true; screen = Screen.HOME })
                 Screen.HOME -> Home(
                     onLinkCheck = { screen = Screen.LINK_CHECK },
-                    onRead = { screen = Screen.READ_ALOUD },
                     onOpenSettings = { screen = Screen.SETTINGS },
                     onEnableAssistant = { context -> context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                 )
                 Screen.LINK_CHECK -> LinkCheck(onBack = { screen = Screen.HOME })
-                Screen.READ_ALOUD -> ReadAloud(onBack = { screen = Screen.HOME })
                 Screen.SETTINGS -> AssistantSettings(onBack = { screen = Screen.HOME }, onReplayTutorial = { screen = Screen.ONBOARDING })
             }
         }
@@ -137,7 +135,7 @@ private fun OnboardingTutorial(onStart: () -> Unit) {
     val steps = remember {
         listOf(
             TutorialStep("손안의 안심비서에 오신 것을 환영해요", "스마트폰을 쉽고 안전하게 사용할 수 있도록 도와드릴게요. 글자는 크게, 버튼은 쉽게 만들었습니다.", Icons.Default.Security),
-            TutorialStep("처음 보이는 홈 화면", "홈 화면에는 글자 읽기, 위험 확인, 안심비서 설정 버튼이 있어요. 필요한 버튼을 한 번만 눌러 주세요.", Icons.Default.CheckCircle),
+            TutorialStep("처음 보이는 홈 화면", "홈 화면에는 위험 확인, 안심비서 설정, 화면 위 빠른 도움 켜기 버튼이 있어요. 필요한 버튼을 한 번만 눌러 주세요.", Icons.Default.CheckCircle),
             TutorialStep("화면 위 빠른 도움 버튼", "홈에서 ‘화면 위 빠른 도움 켜기’를 누른 뒤 설정에서 사용을 켜세요. 다른 앱을 보는 중에도 오른쪽의 ‘열기’를 누르면 듣기와 검사가 나타납니다.", Icons.Default.Sos),
             TutorialStep("화면의 글자 읽기", "뉴스·메시지·블로그를 보다가 ‘열기’ 다음 ‘듣기’를 누르세요. 지금 화면에 보이는 글자를 읽어드립니다. 글자만 보이면 충분해요.", Icons.Default.Hearing),
             TutorialStep("수상한 링크 확인", "문자나 카카오톡에서 모르는 인터넷 주소가 보이면 누르지 마세요. ‘열기’ 다음 ‘검사’를 누르면 위험 신호를 알려드립니다.", Icons.Default.Security),
@@ -187,9 +185,9 @@ private fun TutorialVisual(stepIndex: Int) {
             0 -> Text("이 화면은 언제든 설정에서 다시 볼 수 있어요.", modifier = Modifier.padding(18.dp), fontSize = 16.sp, textAlign = TextAlign.Center)
             1 -> Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("이것이 홈 화면이에요", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Green)
-                TutorialMiniButton("글자 읽기", Green)
                 TutorialMiniButton("위험 확인", Orange)
                 TutorialMiniButton("안심비서 설정", Color(0xFF275D9A))
+                TutorialMiniButton("화면 위 빠른 도움 켜기", Color(0xFF275D9A))
             }
             2 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF4F4F4))) {
                 Text("다른 앱을 보는 화면", modifier = Modifier.padding(16.dp), fontSize = 16.sp, color = Color.DarkGray)
@@ -257,7 +255,6 @@ private fun TutorialMiniButton(label: String, color: Color) {
 @Composable
 private fun Home(
     onLinkCheck: () -> Unit,
-    onRead: () -> Unit,
     onOpenSettings: () -> Unit,
     onEnableAssistant: (Context) -> Unit
 ) {
@@ -266,7 +263,6 @@ private fun Home(
         Text("안녕하세요,", fontSize = 20.sp)
         Text("무엇을 도와드릴까요?", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Green)
         Spacer(Modifier.height(22.dp))
-        HomeButton("글자 읽기", "글을 붙여 넣으면 읽어드려요", Icons.Default.Hearing, Green, onRead)
         HomeButton("위험 확인", "수상한 인터넷 주소 검사하기", Icons.Default.Security, Orange, onLinkCheck)
         HomeButton("안심비서 설정", "음성·튜토리얼·화면 위 버튼", Icons.Default.Tune, Color(0xFF275D9A), onOpenSettings)
         Button(
@@ -286,13 +282,6 @@ private fun Home(
         Card(colors = CardDefaults.cardColors(containerColor = SoftGreen), shape = RoundedCornerShape(18.dp)) {
             Text("기억하세요: 모르는 사람이 급하게 돈이나 인증번호를 요구하면, 누르지 말고 가족에게 먼저 물어보세요.", modifier = Modifier.padding(18.dp), fontSize = 17.sp, lineHeight = 26.sp)
         }
-        Spacer(Modifier.height(22.dp))
-        Button(
-            onClick = { callNumber(context, "112") },
-            colors = ButtonDefaults.buttonColors(containerColor = Red),
-            modifier = Modifier.fillMaxWidth().height(58.dp),
-            shape = RoundedCornerShape(18.dp)
-        ) { Icon(Icons.Default.Call, null); Spacer(Modifier.width(10.dp)); Text("긴급 전화 112", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
