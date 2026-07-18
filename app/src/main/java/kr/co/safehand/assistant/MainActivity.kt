@@ -11,6 +11,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sos
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +47,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -76,24 +82,28 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { ONBOARDING, HOME, LINK_CHECK, FAMILY, READ_ALOUD }
+private enum class Screen { ONBOARDING, HOME, LINK_CHECK, READ_ALOUD, SETTINGS }
+
+private data class TutorialStep(val title: String, val description: String, val icon: ImageVector)
 
 @Composable
 private fun SafeHandApp() {
-    var screen by remember { mutableStateOf(Screen.ONBOARDING) }
+    val context = LocalContext.current
+    val preferences = remember { AssistantPreferences(context) }
+    var screen by remember { mutableStateOf(if (preferences.onboardingCompleted) Screen.HOME else Screen.ONBOARDING) }
     MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(primary = Green, background = Cream)) {
         Surface(modifier = Modifier.fillMaxSize(), color = Cream) {
             when (screen) {
-                Screen.ONBOARDING -> Onboarding(onStart = { screen = Screen.HOME })
+                Screen.ONBOARDING -> OnboardingTutorial(onStart = { preferences.onboardingCompleted = true; screen = Screen.HOME })
                 Screen.HOME -> Home(
                     onLinkCheck = { screen = Screen.LINK_CHECK },
-                    onFamily = { screen = Screen.FAMILY },
                     onRead = { screen = Screen.READ_ALOUD },
+                    onOpenSettings = { screen = Screen.SETTINGS },
                     onEnableAssistant = { context -> context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                 )
                 Screen.LINK_CHECK -> LinkCheck(onBack = { screen = Screen.HOME })
-                Screen.FAMILY -> FamilyHelp(onBack = { screen = Screen.HOME })
                 Screen.READ_ALOUD -> ReadAloud(onBack = { screen = Screen.HOME })
+                Screen.SETTINGS -> AssistantSettings(onBack = { screen = Screen.HOME }, onReplayTutorial = { screen = Screen.ONBOARDING })
             }
         }
     }
@@ -123,10 +133,132 @@ private fun Onboarding(onStart: () -> Unit) {
 }
 
 @Composable
+private fun OnboardingTutorial(onStart: () -> Unit) {
+    val steps = remember {
+        listOf(
+            TutorialStep("손안의 안심비서에 오신 것을 환영해요", "스마트폰을 쉽고 안전하게 사용할 수 있도록 도와드릴게요. 글자는 크게, 버튼은 쉽게 만들었습니다.", Icons.Default.Security),
+            TutorialStep("처음 보이는 홈 화면", "홈 화면에는 글자 읽기, 위험 확인, 안심비서 설정 버튼이 있어요. 필요한 버튼을 한 번만 눌러 주세요.", Icons.Default.CheckCircle),
+            TutorialStep("화면 위 빠른 도움 버튼", "홈에서 ‘화면 위 빠른 도움 켜기’를 누른 뒤 설정에서 사용을 켜세요. 다른 앱을 보는 중에도 오른쪽의 ‘열기’를 누르면 듣기와 검사가 나타납니다.", Icons.Default.Sos),
+            TutorialStep("화면의 글자 읽기", "뉴스·메시지·블로그를 보다가 ‘열기’ 다음 ‘듣기’를 누르세요. 지금 화면에 보이는 글자를 읽어드립니다. 글자만 보이면 충분해요.", Icons.Default.Hearing),
+            TutorialStep("수상한 링크 확인", "문자나 카카오톡에서 모르는 인터넷 주소가 보이면 누르지 마세요. ‘열기’ 다음 ‘검사’를 누르면 위험 신호를 알려드립니다.", Icons.Default.Security),
+            TutorialStep("내게 맞게 설정하기", "안심비서 설정에서 말하는 속도와 음량을 바꾸고, 화면 위 버튼을 숨기거나 이 안내를 다시 볼 수 있어요.", Icons.Default.Tune)
+        )
+    }
+    var stepIndex by remember { mutableStateOf(0) }
+    val step = steps[stepIndex]
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(28.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("사용 안내 ${stepIndex + 1} / ${steps.size}", fontSize = 17.sp, color = Green)
+        Icon(step.icon, null, tint = Green, modifier = Modifier.size(92.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(step.title, fontSize = 27.sp, fontWeight = FontWeight.Bold, color = Green, textAlign = TextAlign.Center, lineHeight = 36.sp)
+            Spacer(Modifier.height(18.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = SoftGreen), shape = RoundedCornerShape(22.dp)) {
+                Text(step.description, modifier = Modifier.padding(22.dp), fontSize = 19.sp, lineHeight = 30.sp, textAlign = TextAlign.Center)
+            }
+        }
+        TutorialVisual(stepIndex)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (stepIndex > 0) {
+                TextButton(onClick = { stepIndex-- }, modifier = Modifier.weight(1f).height(60.dp)) { Text("이전", fontSize = 19.sp) }
+            }
+            Button(
+                onClick = { if (stepIndex == steps.lastIndex) onStart() else stepIndex++ },
+                modifier = Modifier.weight(1f).height(60.dp),
+                shape = RoundedCornerShape(18.dp)
+            ) { Text(if (stepIndex == steps.lastIndex) "홈 화면으로 가기" else "다음", fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+@Composable
+private fun TutorialVisual(stepIndex: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        when (stepIndex) {
+            0 -> Text("이 화면은 언제든 설정에서 다시 볼 수 있어요.", modifier = Modifier.padding(18.dp), fontSize = 16.sp, textAlign = TextAlign.Center)
+            1 -> Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("이것이 홈 화면이에요", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Green)
+                TutorialMiniButton("글자 읽기", Green)
+                TutorialMiniButton("위험 확인", Orange)
+                TutorialMiniButton("안심비서 설정", Color(0xFF275D9A))
+            }
+            2 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF4F4F4))) {
+                Text("다른 앱을 보는 화면", modifier = Modifier.padding(16.dp), fontSize = 16.sp, color = Color.DarkGray)
+                TutorialFabPreview(modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
+            }
+            3 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF8F8F8))) {
+                Column(modifier = Modifier.padding(14.dp).padding(end = 70.dp)) {
+                    Text("오늘의 건강 소식", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(7.dp))
+                    Text("오늘은 가벼운 산책으로 건강을 챙겨 보세요.", fontSize = 15.sp, lineHeight = 22.sp)
+                    Text("화면에 보이는 이 글을 읽어드려요.", fontSize = 15.sp, lineHeight = 22.sp)
+                }
+                TutorialFabPreview(modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp), highlighted = "듣기")
+            }
+            4 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF8F8F8))) {
+                Column(modifier = Modifier.padding(14.dp).padding(end = 70.dp)) {
+                    Text("새 메시지", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("무료 선물을 받으세요!", fontSize = 15.sp)
+                    Text("http://bit.ly/example", fontSize = 15.sp, color = Red)
+                    Text("누르기 전에 검사 버튼으로 확인", fontSize = 14.sp, color = Color.DarkGray)
+                }
+                TutorialFabPreview(modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp), highlighted = "검사")
+            }
+            else -> Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("안심비서 설정", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("말하는 속도     1.0배", fontSize = 15.sp)
+                Slider(value = 0.5f, onValueChange = {}, modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("FAB 보이기", modifier = Modifier.weight(1f), fontSize = 15.sp)
+                    Switch(checked = true, onCheckedChange = {})
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TutorialFabPreview(modifier: Modifier = Modifier, highlighted: String? = null) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        TutorialFabCircle("듣기", highlighted == "듣기")
+        TutorialFabCircle("검사", highlighted == "검사")
+        TutorialFabCircle("닫기", false)
+    }
+}
+
+@Composable
+private fun TutorialFabCircle(label: String, highlighted: Boolean) {
+    Box(
+        modifier = Modifier
+            .size(53.dp)
+            .then(if (highlighted) Modifier.border(3.dp, Red, CircleShape) else Modifier)
+            .background(Green, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun TutorialMiniButton(label: String, color: Color) {
+    Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().background(color, RoundedCornerShape(12.dp)).padding(10.dp))
+}
+
+@Composable
 private fun Home(
     onLinkCheck: () -> Unit,
-    onFamily: () -> Unit,
     onRead: () -> Unit,
+    onOpenSettings: () -> Unit,
     onEnableAssistant: (Context) -> Unit
 ) {
     val context = LocalContext.current
@@ -134,10 +266,9 @@ private fun Home(
         Text("안녕하세요,", fontSize = 20.sp)
         Text("무엇을 도와드릴까요?", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Green)
         Spacer(Modifier.height(22.dp))
-        HomeButton("도움 요청", "가족에게 전화 또는 문자 보내기", Icons.Default.Sos, Red, onFamily)
         HomeButton("글자 읽기", "글을 붙여 넣으면 읽어드려요", Icons.Default.Hearing, Green, onRead)
         HomeButton("위험 확인", "수상한 인터넷 주소 검사하기", Icons.Default.Security, Orange, onLinkCheck)
-        HomeButton("가족 연락", "등록한 보호자에게 연락하기", Icons.Default.FamilyRestroom, Green, onFamily)
+        HomeButton("안심비서 설정", "음성·튜토리얼·화면 위 버튼", Icons.Default.Tune, Color(0xFF275D9A), onOpenSettings)
         Button(
             onClick = { onEnableAssistant(context) },
             modifier = Modifier.fillMaxWidth().height(72.dp).padding(bottom = 10.dp),
@@ -209,6 +340,59 @@ private fun LinkCheck(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun AssistantSettings(onBack: () -> Unit, onReplayTutorial: () -> Unit) {
+    val context = LocalContext.current
+    val preferences = remember { AssistantPreferences(context) }
+    val speaker = rememberSpeaker()
+    var speechRate by remember { mutableStateOf(preferences.speechRate) }
+    var speechVolume by remember { mutableStateOf(preferences.speechVolume) }
+    var floatingButtonEnabled by remember { mutableStateOf(preferences.floatingButtonEnabled) }
+
+    Scaffold(topBar = { BackBar("안심비서 설정", onBack) }) { padding ->
+        Column(
+            modifier = Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Text("목소리 설정", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Card(colors = CardDefaults.cardColors(containerColor = SoftGreen), shape = RoundedCornerShape(18.dp)) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text("말하는 속도  ${String.format(Locale.KOREAN, "%.1f", speechRate)}배", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Slider(value = speechRate, onValueChange = { speechRate = it; preferences.speechRate = it }, valueRange = 0.5f..1.5f, steps = 9)
+                    Text("음량  ${(speechVolume * 100).toInt()}%", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Slider(value = speechVolume, onValueChange = { speechVolume = it; preferences.speechVolume = it }, valueRange = 0.2f..1.0f, steps = 7)
+                    Button(onClick = { speakWithSettings(speaker, "안녕하세요. 손안의 안심비서입니다.", preferences) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Hearing, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("목소리 미리 듣기", fontSize = 18.sp)
+                    }
+                }
+            }
+
+            Text("화면 위 빠른 도움", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Card(shape = RoundedCornerShape(18.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("FAB 보이기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("다른 앱에서도 ‘듣기·검사’ 버튼을 표시합니다.", fontSize = 15.sp, lineHeight = 22.sp)
+                    }
+                    Switch(checked = floatingButtonEnabled, onCheckedChange = {
+                        floatingButtonEnabled = it
+                        preferences.floatingButtonEnabled = it
+                    })
+                }
+            }
+
+            Button(onClick = onReplayTutorial, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(18.dp)) {
+                Icon(Icons.Default.Security, null)
+                Spacer(Modifier.width(10.dp))
+                Text("튜토리얼 다시 보기", fontSize = 19.sp)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun FamilyHelp(onBack: () -> Unit) {
     val context = LocalContext.current
     var phone by remember { mutableStateOf("") }
@@ -229,11 +413,13 @@ private fun FamilyHelp(onBack: () -> Unit) {
 private fun ReadAloud(onBack: () -> Unit) {
     var words by remember { mutableStateOf("") }
     val speaker = rememberSpeaker()
+    val context = LocalContext.current
+    val preferences = remember { AssistantPreferences(context) }
     Scaffold(topBar = { BackBar("글자 읽기", onBack) }) { padding ->
         Column(modifier = Modifier.padding(padding).padding(22.dp)) {
             Text("읽고 싶은 글을 붙여 넣어 주세요.", fontSize = 21.sp, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = words, onValueChange = { words = it }, label = { Text("글 입력") }, modifier = Modifier.fillMaxWidth().padding(top = 20.dp), minLines = 6, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 19.sp))
-            Button(onClick = { speaker.speak(words, TextToSpeech.QUEUE_FLUSH, null, "safehand-read") }, enabled = words.isNotBlank(), modifier = Modifier.fillMaxWidth().height(62.dp).padding(top = 10.dp), shape = RoundedCornerShape(18.dp)) { Icon(Icons.Default.Hearing, null); Spacer(Modifier.width(10.dp)); Text("소리 내어 읽기", fontSize = 20.sp) }
+            Button(onClick = { speakWithSettings(speaker, words, preferences) }, enabled = words.isNotBlank(), modifier = Modifier.fillMaxWidth().height(62.dp).padding(top = 10.dp), shape = RoundedCornerShape(18.dp)) { Icon(Icons.Default.Hearing, null); Spacer(Modifier.width(10.dp)); Text("소리 내어 읽기", fontSize = 20.sp) }
         }
     }
 }
@@ -248,6 +434,12 @@ private fun rememberSpeaker(): TextToSpeech {
     val speaker = remember { TextToSpeech(context) { } }
     DisposableEffect(Unit) { speaker.language = Locale.KOREAN; onDispose { speaker.shutdown() } }
     return speaker
+}
+
+private fun speakWithSettings(speaker: TextToSpeech, words: String, preferences: AssistantPreferences) {
+    speaker.setSpeechRate(preferences.speechRate)
+    val options = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, preferences.speechVolume) }
+    speaker.speak(words, TextToSpeech.QUEUE_FLUSH, options, "safehand-read")
 }
 
 private enum class RiskLevel { SAFE, CAUTION, DANGER }

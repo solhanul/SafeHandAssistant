@@ -40,7 +40,15 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
     private var latestUrl: String? = null
     private var lastWarnedUrl: String? = null
     private var overlay: View? = null
+    private var actionPanel: LinearLayout? = null
+    private var toggleButton: TextView? = null
     private lateinit var windowManager: WindowManager
+    private val preferences by lazy { AssistantPreferences(this) }
+    private val preferenceListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == AssistantPreferences.KEY_FLOATING_BUTTON) {
+            if (preferences.floatingButtonEnabled) showAssistantButton() else hideAssistantButton()
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -50,7 +58,8 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         }
         tts = TextToSpeech(this, this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        showAssistantButton()
+        preferences.registerListener(preferenceListener)
+        if (preferences.floatingButtonEnabled) showAssistantButton()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -89,6 +98,7 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
 
     override fun onDestroy() {
         overlay?.let { windowManager.removeView(it) }
+        preferences.unregisterListener(preferenceListener)
         tts?.shutdown()
         screenTextRecognizer.close()
         super.onDestroy()
@@ -104,12 +114,19 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(8, 8, 8, 8)
-            background = roundedBackground(Color.rgb(11, 110, 79), 60)
             contentDescription = "손안의 안심비서 빠른 도움"
         }
-        panel.addView(actionButton("듣기") { readCurrentScreen() })
-        panel.addView(actionButton("검사") { checkLatestUrl() })
-        panel.setOnLongClickListener { hideAssistantButton(); true }
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+        }
+        actions.addView(actionButton("듣기") { readCurrentScreen() })
+        actions.addView(actionButton("검사") { checkLatestUrl() })
+        panel.addView(actions)
+        val toggle = actionButton("열기") { toggleActions() }.apply {
+            setOnLongClickListener { hideAssistantButton(); true }
+        }
+        panel.addView(toggle)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -120,15 +137,31 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
         windowManager.addView(panel, params)
         overlay = panel
+        actionPanel = actions
+        toggleButton = toggle
     }
 
     private fun actionButton(label: String, action: () -> Unit): TextView = TextView(this).apply {
         text = label
-        textSize = 16f
+        textSize = 14f
         setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
-        setPadding(20, 16, 20, 16)
+        setPadding(0, 0, 0, 0)
+        val size = (resources.displayMetrics.density * 58).toInt()
+        layoutParams = LinearLayout.LayoutParams(size, size).apply { bottomMargin = (resources.displayMetrics.density * 7).toInt() }
+        background = roundedBackground(Color.rgb(11, 110, 79), size / 2)
         setOnClickListener { action() }
+    }
+
+    private fun toggleActions() {
+        val expanded = actionPanel?.visibility != View.VISIBLE
+        actionPanel?.visibility = if (expanded) View.VISIBLE else View.GONE
+        toggleButton?.text = if (expanded) "닫기" else "열기"
+    }
+
+    private fun collapseActions() {
+        actionPanel?.visibility = View.GONE
+        toggleButton?.text = "열기"
     }
 
     private fun checkLatestUrl() {
@@ -170,9 +203,11 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         screenTextRecognizer.process(InputImage.fromBitmap(bitmap, 0))
             .addOnSuccessListener { result ->
                 val visibleText = result.textBlocks
+                    // 화면 맨 위 상태 표시줄(시간·통신·배터리)은 본문이 아니다.
+                    .filter { block -> (block.boundingBox?.bottom ?: 0) > statusBarHeight }
                     .flatMap { it.lines }
                     .map { it.text.trim() }
-                    .filter { it.isNotBlank() && it !in ignoredLabels && !it.matches(Regex("\\d{1,2}:\\d{2}")) }
+                    .filter { it.isNotBlank() && !isIgnoredOcrText(it) }
                     .joinToString(". ")
                     .take(MAX_READ_LENGTH)
                 if (visibleText.isBlank()) speak("화면에서 읽을 글자를 찾지 못했어요.") else speak(visibleText)
@@ -250,10 +285,27 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         return true
     }
 
+    private fun isIgnoredOcrText(text: String): Boolean {
+        if (text in ignoredLabels) return true
+        val normalized = text.trim()
+        return normalized.matches(Regex("\\d{1,2}:\\d{2}")) ||
+            normalized.matches(Regex("(오전|오후)\\s*\\d{1,2}:\\d{2}")) ||
+            normalized.matches(Regex("\\d{1,2}:\\d{2}\\s*(AM|PM)", RegexOption.IGNORE_CASE))
+    }
+
     private fun isEditableSecret(node: AccessibilityNodeInfo) = node.isEditable && (node.inputType and 0x00000080) != 0
-    private fun speak(message: String) { tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "safehand") }
+    private fun speak(message: String) {
+        tts?.setSpeechRate(preferences.speechRate)
+        val options = android.os.Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, preferences.speechVolume) }
+        tts?.speak(message, TextToSpeech.QUEUE_FLUSH, options, "safehand")
+    }
     private fun vibrate() { (getSystemService(VIBRATOR_SERVICE) as Vibrator).vibrate(VibrationEffect.createOneShot(650, VibrationEffect.DEFAULT_AMPLITUDE)) }
-    private fun hideAssistantButton() { overlay?.let { windowManager.removeView(it) }; overlay = null }
+    private fun hideAssistantButton() {
+        overlay?.let { windowManager.removeView(it) }
+        overlay = null
+        actionPanel = null
+        toggleButton = null
+    }
     private fun roundedBackground(color: Int, radius: Int) = GradientDrawable().apply { setColor(color); cornerRadius = radius.toFloat() }
 
     private val statusBarHeight get() = (resources.displayMetrics.density * 32).toInt()
