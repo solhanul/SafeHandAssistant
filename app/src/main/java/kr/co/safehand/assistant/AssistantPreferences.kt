@@ -18,6 +18,14 @@ class AssistantPreferences(context: Context) {
         get() = preferences.getBoolean(KEY_FLOATING_BUTTON, true)
         set(value) = preferences.edit().putBoolean(KEY_FLOATING_BUTTON, value).apply()
 
+    var floatingButtonX: Int
+        get() = preferences.getInt(KEY_FLOATING_BUTTON_X, -1)
+        set(value) = preferences.edit().putInt(KEY_FLOATING_BUTTON_X, value).apply()
+
+    var floatingButtonY: Int
+        get() = preferences.getInt(KEY_FLOATING_BUTTON_Y, -1)
+        set(value) = preferences.edit().putInt(KEY_FLOATING_BUTTON_Y, value).apply()
+
     var onboardingCompleted: Boolean
         get() = preferences.getBoolean(KEY_ONBOARDING_COMPLETED, false)
         set(value) = preferences.edit().putBoolean(KEY_ONBOARDING_COMPLETED, value).apply()
@@ -27,6 +35,8 @@ class AssistantPreferences(context: Context) {
 
     companion object {
         const val KEY_FLOATING_BUTTON = "floating_button_enabled"
+        private const val KEY_FLOATING_BUTTON_X = "floating_button_x"
+        private const val KEY_FLOATING_BUTTON_Y = "floating_button_y"
         private const val KEY_SPEECH_RATE = "speech_rate"
         private const val KEY_SPEECH_VOLUME = "speech_volume"
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"

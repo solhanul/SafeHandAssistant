@@ -13,6 +13,7 @@ import android.speech.tts.TextToSpeech
 import android.graphics.Rect
 import android.view.Gravity
 import android.view.Display
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -25,6 +26,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.TextRecognizer
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * 다른 앱에서 사용자가 길게 누른 글자를 읽고, 화면에 표시된 링크를 점검한다.
@@ -42,6 +44,7 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
     private var overlay: View? = null
     private var actionPanel: LinearLayout? = null
     private var toggleButton: TextView? = null
+    private var overlayParams: WindowManager.LayoutParams? = null
     private lateinit var windowManager: WindowManager
     private val preferences by lazy { AssistantPreferences(this) }
     private val preferenceListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -122,23 +125,33 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         }
         actions.addView(actionButton("듣기") { readCurrentScreen() })
         actions.addView(actionButton("검사") { checkLatestUrl() })
+        actions.addView(actionButton("멈춤") { stopSpeaking() })
         panel.addView(actions)
         val toggle = actionButton("열기") { toggleActions() }.apply {
             setOnLongClickListener { hideAssistantButton(); true }
         }
         panel.addView(toggle)
 
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        val buttonSize = dp(58)
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             android.graphics.PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = preferences.floatingButtonX.takeIf { it >= 0 } ?: (screenWidth - buttonSize - dp(12))
+            y = preferences.floatingButtonY.takeIf { it >= 0 } ?: (screenHeight / 2)
+        }
         windowManager.addView(panel, params)
         overlay = panel
         actionPanel = actions
         toggleButton = toggle
+        overlayParams = params
+        enableDragging(toggle)
     }
 
     private fun actionButton(label: String, action: () -> Unit): TextView = TextView(this).apply {
@@ -162,6 +175,46 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
     private fun collapseActions() {
         actionPanel?.visibility = View.GONE
         toggleButton?.text = "열기"
+    }
+
+    private fun enableDragging(button: View) {
+        var downX = 0f
+        var downY = 0f
+        var startX = 0
+        var startY = 0
+        var moved = false
+        val touchSlop = dp(8)
+        button.setOnTouchListener { _, event ->
+            val params = overlayParams ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    startX = params.x
+                    startY = params.y
+                    moved = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - downX
+                    val deltaY = event.rawY - downY
+                    if (abs(deltaX) > touchSlop || abs(deltaY) > touchSlop) moved = true
+                    if (moved) {
+                        val overlayHeight = overlay?.height?.takeIf { it > 0 } ?: dp(58)
+                        params.x = (startX + deltaX).toInt().coerceIn(0, resources.displayMetrics.widthPixels - dp(58))
+                        params.y = (startY + deltaY).toInt().coerceIn(0, resources.displayMetrics.heightPixels - overlayHeight)
+                        overlay?.let { windowManager.updateViewLayout(it, params) }
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (moved) {
+                        preferences.floatingButtonX = params.x
+                        preferences.floatingButtonY = params.y
+                        return@setOnTouchListener true
+                    }
+                }
+            }
+            false
+        }
     }
 
     private fun checkLatestUrl() {
@@ -294,6 +347,7 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
     }
 
     private fun isEditableSecret(node: AccessibilityNodeInfo) = node.isEditable && (node.inputType and 0x00000080) != 0
+    private fun stopSpeaking() { tts?.stop() }
     private fun speak(message: String) {
         tts?.setSpeechRate(preferences.speechRate)
         val options = android.os.Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, preferences.speechVolume) }
@@ -305,8 +359,10 @@ class SafeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitList
         overlay = null
         actionPanel = null
         toggleButton = null
+        overlayParams = null
     }
     private fun roundedBackground(color: Int, radius: Int) = GradientDrawable().apply { setColor(color); cornerRadius = radius.toFloat() }
+    private fun dp(value: Int) = (resources.displayMetrics.density * value).toInt()
 
     private val statusBarHeight get() = (resources.displayMetrics.density * 32).toInt()
     private val screenHeight get() = resources.displayMetrics.heightPixels

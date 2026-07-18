@@ -136,7 +136,7 @@ private fun OnboardingTutorial(onStart: () -> Unit) {
         listOf(
             TutorialStep("손안의 안심비서에 오신 것을 환영해요", "스마트폰을 쉽고 안전하게 사용할 수 있도록 도와드릴게요. 글자는 크게, 버튼은 쉽게 만들었습니다.", Icons.Default.Security),
             TutorialStep("처음 보이는 홈 화면", "홈 화면에는 위험 확인, 안심비서 설정, 화면 위 빠른 도움 켜기 버튼이 있어요. 필요한 버튼을 한 번만 눌러 주세요.", Icons.Default.CheckCircle),
-            TutorialStep("화면 위 빠른 도움 버튼", "홈에서 ‘화면 위 빠른 도움 켜기’를 누른 뒤 설정에서 사용을 켜세요. 다른 앱을 보는 중에도 오른쪽의 ‘열기’를 누르면 듣기와 검사가 나타납니다.", Icons.Default.Sos),
+            TutorialStep("화면 위 빠른 도움 버튼", "홈에서 ‘화면 위 빠른 도움 켜기’를 누른 뒤 설정에서 사용을 켜세요. ‘열기’를 누르면 듣기·검사·멈춤이 나타나고, 열기 버튼을 끌어 위치를 옮길 수 있어요.", Icons.Default.Sos),
             TutorialStep("화면의 글자 읽기", "뉴스·메시지·블로그를 보다가 ‘열기’ 다음 ‘듣기’를 누르세요. 지금 화면에 보이는 글자를 읽어드립니다. 글자만 보이면 충분해요.", Icons.Default.Hearing),
             TutorialStep("수상한 링크 확인", "문자나 카카오톡에서 모르는 인터넷 주소가 보이면 누르지 마세요. ‘열기’ 다음 ‘검사’를 누르면 위험 신호를 알려드립니다.", Icons.Default.Security),
             TutorialStep("내게 맞게 설정하기", "안심비서 설정에서 말하는 속도와 음량을 바꾸고, 화면 위 버튼을 숨기거나 이 안내를 다시 볼 수 있어요.", Icons.Default.Tune)
@@ -189,11 +189,11 @@ private fun TutorialVisual(stepIndex: Int) {
                 TutorialMiniButton("안심비서 설정", Color(0xFF275D9A))
                 TutorialMiniButton("화면 위 빠른 도움 켜기", Color(0xFF275D9A))
             }
-            2 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF4F4F4))) {
+            2 -> Box(modifier = Modifier.fillMaxWidth().height(225.dp).background(Color(0xFFF4F4F4))) {
                 Text("다른 앱을 보는 화면", modifier = Modifier.padding(16.dp), fontSize = 16.sp, color = Color.DarkGray)
                 TutorialFabPreview(modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
             }
-            3 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF8F8F8))) {
+            3 -> Box(modifier = Modifier.fillMaxWidth().height(225.dp).background(Color(0xFFF8F8F8))) {
                 Column(modifier = Modifier.padding(14.dp).padding(end = 70.dp)) {
                     Text("오늘의 건강 소식", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(7.dp))
@@ -202,7 +202,7 @@ private fun TutorialVisual(stepIndex: Int) {
                 }
                 TutorialFabPreview(modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp), highlighted = "듣기")
             }
-            4 -> Box(modifier = Modifier.fillMaxWidth().height(205.dp).background(Color(0xFFF8F8F8))) {
+            4 -> Box(modifier = Modifier.fillMaxWidth().height(225.dp).background(Color(0xFFF8F8F8))) {
                 Column(modifier = Modifier.padding(14.dp).padding(end = 70.dp)) {
                     Text("새 메시지", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
@@ -230,6 +230,7 @@ private fun TutorialFabPreview(modifier: Modifier = Modifier, highlighted: Strin
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         TutorialFabCircle("듣기", highlighted == "듣기")
         TutorialFabCircle("검사", highlighted == "검사")
+        TutorialFabCircle("멈춤", false)
         TutorialFabCircle("닫기", false)
     }
 }
@@ -238,12 +239,12 @@ private fun TutorialFabPreview(modifier: Modifier = Modifier, highlighted: Strin
 private fun TutorialFabCircle(label: String, highlighted: Boolean) {
     Box(
         modifier = Modifier
-            .size(53.dp)
+            .size(42.dp)
             .then(if (highlighted) Modifier.border(3.dp, Red, CircleShape) else Modifier)
             .background(Green, CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }
 
